@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "eastus2"
+    },
+    "storageAccountPrefix": {
+      "value": "sapifile"
+    },
+    "vnetResourceGroupName": {
+      "value": "aet-pi-localdev-es2-tst3"
+    },
+    "vnetName": {
+      "value": "vnet-pi-localdev"
+    },
+    "storageSubnetName": {
+      "value": "storageSubnet"
+    }
+  }
+}

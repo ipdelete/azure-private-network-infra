@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vnetName": {
+      "value": "vnet-pi-localdev"
+    },
+    "vnetAddressSpace": {
+      "value": "10.0.0.0/16"
+    },
+    "vmSubnetAddressPrefix": {
+      "value": "10.0.1.0/24"
+    },
+    "bastionSubnetAddressPrefix": {
+      "value": "10.0.2.0/24"
+    },
+    "storageSubnetAddressPrefix": {
+      "value": "10.0.3.0/24"
+    }
+  }
+}
