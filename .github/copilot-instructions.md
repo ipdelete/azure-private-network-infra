@@ -19,9 +19,9 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
 - **Resource Group**: `aet-pi-localdev-es2-tst3`
 - **Location**: `eastus2`
 - **Files**:
-  - [`rg/main.bicep`](rg/main.bicep) - Bicep template for resource group creation
-  - [`rg/main.parameters.json`](rg/main.parameters.json) - Parameters file
-  - [`rg/deploy.sh`](rg/deploy.sh) - Deployment script
+  - [`rg/main.bicep`](../rg/main.bicep) - Bicep template for resource group creation
+  - [`rg/main.parameters.json`](../rg/main.parameters.json) - Parameters file
+  - [`rg/deploy.sh`](../rg/deploy.sh) - Deployment script
 
 #### 2. Virtual Network Infrastructure (`vnet/`)
 - **Purpose**: Creates the network foundation with proper segmentation
@@ -33,9 +33,9 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - Storage Subnet: `10.0.3.0/24` (for NFS private endpoint)
 - **Security**: Network Security Groups configured for each subnet
 - **Files**:
-  - [`vnet/main.bicep`](vnet/main.bicep) - VNet and subnet configuration
-  - [`vnet/main.parameters.json`](vnet/main.parameters.json) - Network parameters
-  - [`vnet/deploy.sh`](vnet/deploy.sh) - VNet deployment script
+  - [`vnet/main.bicep`](../vnet/main.bicep) - VNet and subnet configuration
+  - [`vnet/main.parameters.json`](../vnet/main.parameters.json) - Network parameters
+  - [`vnet/deploy.sh`](../vnet/deploy.sh) - VNet deployment script
 
 #### 3. Storage Account with Private Endpoint (`sa/`)
 - **Purpose**: Creates a premium FileStorage account with NFS v4.1 support and private endpoint connectivity
@@ -55,9 +55,9 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - Public blob access disabled
   - Shared key access enabled (required for some NFS scenarios)
 - **Files**:
-  - [`sa/main.bicep`](sa/main.bicep) - Storage account, private endpoint, and DNS configuration
-  - [`sa/main.parameters.json`](sa/main.parameters.json) - Storage parameters
-  - [`sa/deploy.sh`](sa/deploy.sh) - Storage deployment script
+  - [`sa/main.bicep`](../sa/main.bicep) - Storage account, private endpoint, and DNS configuration
+  - [`sa/main.parameters.json`](../sa/main.parameters.json) - Storage parameters
+  - [`sa/deploy.sh`](../sa/deploy.sh) - Storage deployment script
 
 #### 4. NFS File Share (`nfs/`)
 - **Purpose**: Creates an NFS 4.1 file share on the storage account for secure file sharing with Linux VMs
@@ -76,9 +76,9 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - Standard NFS mount commands supported
   - Mount path provided in deployment outputs
 - **Files**:
-  - [`nfs/main.bicep`](nfs/main.bicep) - NFS share configuration
-  - [`nfs/main.parameters.json`](nfs/main.parameters.json) - NFS parameters
-  - [`nfs/deploy.sh`](nfs/deploy.sh) - NFS deployment script
+  - [`nfs/main.bicep`](../nfs/main.bicep) - NFS share configuration
+  - [`nfs/main.parameters.json`](../nfs/main.parameters.json) - NFS parameters
+  - [`nfs/deploy.sh`](../nfs/deploy.sh) - NFS deployment script
 
 #### 5. Linux Virtual Machine (`vm/`)
 - **Purpose**: Creates a Red Hat Enterprise Linux VM connected to the private network with no public IP
@@ -100,14 +100,14 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - No direct internet connectivity
   - Access only via Azure Bastion (when deployed)
 - **Files**:
-  - [`vm/main.bicep`](vm/main.bicep) - VM and network interface configuration
-  - [`vm/main.parameters.json`](vm/main.parameters.json) - VM parameters
-  - [`vm/deploy.sh`](vm/deploy.sh) - VM deployment script
-  - [`vm/generate-ssh-key.sh`](vm/generate-ssh-key.sh) - SSH key generation helper
+  - [`vm/main.bicep`](../vm/main.bicep) - VM and network interface configuration
+  - [`vm/main.parameters.json`](../vm/main.parameters.json) - VM parameters
+  - [`vm/deploy.sh`](../vm/deploy.sh) - VM deployment script
+  - [`vm/generate-ssh-key.sh`](../vm/generate-ssh-key.sh) - SSH key generation helper
 
 ### 🔧 Utility Scripts
-- [`scripts/cleanup.sh`](scripts/cleanup.sh) - Safe resource group deletion with confirmation
-- [`scripts/get-rg.sh`](scripts/get-rg.sh) - Quick resource group status check
+- [`scripts/cleanup.sh`](../scripts/cleanup.sh) - Safe resource group deletion with confirmation
+- [`scripts/get-rg.sh`](../scripts/get-rg.sh) - Quick resource group status check
 
 ## Deployment Order
 1. **Resource Group**: Run `rg/deploy.sh` to create the resource group
