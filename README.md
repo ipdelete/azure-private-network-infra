@@ -1,6 +1,15 @@
 # Azure Private Network Infrastructure
 
-A secure Azure infrastructure deployment for hosting a Linux VM with NFS file share access, completely isolated from the internet with access only through Azure Bastion using SSH.
+A secure Azure infrastructure deployment for hosting a Linux VM with NFS file share access, compl## 💻 Virtual Machine Configuration
+
+- **Operating System**: Red Hat Enterprise Linux 9.4
+- **VM Size**: Standard_B2s (2 vCPUs, 4 GB RAM)
+- **Authentication**: SSH key-based (password disabled)
+- **Network**: Private IP only (10.0.1.x/24)
+- **Storage**: Premium SSD managed disk
+- **Access**: Azure Bastion only (no public IP)
+- **Cloud-Init**: Automated NFS mounting and aznfs installation
+- **NFS Mount**: Automatically mounted at `/mount/{storageAccountName}/{nfsShareName}`olated from the internet with access only through Azure Bastion using SSH.
 
 ## ⚠️ Important: First Time Setup
 
@@ -50,7 +59,7 @@ This project creates a zero-trust network architecture with the following compon
 │   ├── main.parameters.json
 │   └── deploy.sh
 ├── vm/                     # Linux Virtual Machine
-│   ├── main.bicep         # Red Hat VM and network interface
+│   ├── main.bicep         # Red Hat VM with cloud-init NFS mounting
 │   ├── main.parameters.json
 │   ├── deploy.sh
 │   └── generate-ssh-key.sh # SSH key generation helper
@@ -65,6 +74,40 @@ This project creates a zero-trust network architecture with the following compon
 │   ├── setup-hooks.sh     # Git hooks installation script
 │   └── README-hooks.md    # Git hooks documentation
 └── README.md              # This file
+```
+
+## 🤖 Cloud-Init Automation
+
+The VM deployment includes automated cloud-init configuration that:
+
+### ✅ **Automated Setup Process**
+1. **Repository Configuration**: Adds Microsoft package repository for RHEL 9
+2. **Package Installation**: Installs `aznfs` package for optimized NFS 4.1 performance
+3. **Directory Creation**: Creates mount point at `/mount/{storageAccountName}/{nfsShareName}`
+4. **NFS Mounting**: Mounts the storage account NFS share with optimized settings
+5. **Persistent Configuration**: Adds mount entry to `/etc/fstab` for automatic mounting on boot
+6. **Permissions**: Sets proper ownership for the admin user
+
+### 🔧 **Cloud-Init Script Features**
+- **Network-aware**: Uses Azure environment functions for cross-cloud compatibility
+- **Error-resilient**: Handles package installation and mounting gracefully
+- **Performance-optimized**: Uses `nconnect=4` for enhanced throughput
+- **Security-focused**: Uses proper NFS 4.1 security settings (`sec=sys`)
+
+### 📋 **What Gets Installed**
+```bash
+# Packages installed via cloud-init:
+- curl                    # For downloading Microsoft repository configuration
+- rpm                     # For package management
+- aznfs                   # Microsoft's optimized NFS client for Azure Files
+```
+
+### 🗂️ **File System Layout After Deployment**
+```
+/mount/
+└── sapifile{uniqueString}/
+    └── nfsshare/         # ← Your NFS share mounted here
+        └── (your files)
 ```
 
 ## 🚀 Quick Start
@@ -179,10 +222,10 @@ Resources use timestamp-based naming for uniqueness:
 - [x] Private DNS zones
 - [x] Red Hat Linux Virtual Machine with SSH access
 - [x] Azure Bastion host for secure VM access
+- [x] Cloud-init automated NFS mounting with aznfs
 
 ### 🚧 Planned Components
 
-- [ ] VM-to-NFS mount configuration
 - [ ] Additional security hardening
 
 ## 🛠️ Management Scripts
@@ -227,6 +270,37 @@ cd vm/
 # 2. Click "Connect" → "Bastion"
 # 3. Use SSH authentication with private key
 # 4. Username: azureuser
+# 5. The NFS share will be automatically mounted at /mount/{storageAccountName}/{nfsShareName}
+```
+
+### Validate Cloud-Init and NFS Mount
+```bash
+# Connect to VM via Azure Portal → VM → Connect → Bastion
+# Username: azureuser, use your SSH private key
+
+# Check overall cloud-init status
+sudo cloud-init status
+
+# Check if cloud-init completed successfully
+sudo cloud-init status --wait
+
+# View cloud-init logs for troubleshooting
+sudo cat /var/log/cloud-init.log
+sudo cat /var/log/cloud-init-output.log
+
+# Verify NFS mount is active
+df -h | grep nfs
+mount | grep nfs
+
+# Check fstab entry for persistent mounting
+cat /etc/fstab | grep nfs
+
+# Verify NFS share is accessible
+ls -la /mount/sapifile*/nfsshare
+
+# Test write access to NFS share
+echo "Hello from VM" > /mount/sapifile*/nfsshare/test.txt
+cat /mount/sapifile*/nfsshare/test.txt
 ```
 
 ### Check VM Status
@@ -241,6 +315,47 @@ az vm show --resource-group aet-pi-localdev-es2-tst3 --name vm-pi-localdev
 1. **Deployment Failures**: Check Azure CLI authentication and permissions
 2. **Network Connectivity**: Verify NSG rules and private endpoint configuration
 3. **Storage Access**: Ensure private DNS resolution is working
+4. **Cloud-Init Failures**: Check cloud-init logs and status
+5. **NFS Mount Issues**: Verify aznfs installation and network connectivity
+
+### Cloud-Init and NFS Troubleshooting
+
+```bash
+# Connect to VM via Azure Portal → VM → Connect → Bastion
+
+# Check cloud-init status and logs
+sudo cloud-init status
+sudo grep -i error /var/log/cloud-init.log
+sudo grep -i failed /var/log/cloud-init.log
+
+# Check if aznfs package is installed
+rpm -qa | grep aznfs
+yum list installed | grep aznfs
+
+# Verify network connectivity to storage account
+nslookup sapifile*.file.core.windows.net
+
+# Check mount status
+df -h | grep nfs
+mount | grep nfs
+
+# Manual mount test (if automated mount failed)
+sudo mkdir -p /mnt/test
+sudo mount -t aznfs sapifile*.file.core.windows.net:/sapifile*/nfsshare /mnt/test -o vers=4,minorversion=1,sec=sys,nconnect=4
+
+# Check system logs for mount issues
+sudo journalctl -u cloud-init
+sudo dmesg | grep -i nfs
+```
+
+### Re-run Cloud-Init (if needed)
+
+```bash
+# Clean and re-run cloud-init (use with caution)
+sudo cloud-init clean
+sudo cloud-init init
+sudo cloud-init modules
+```
 
 ### Validation Commands
 

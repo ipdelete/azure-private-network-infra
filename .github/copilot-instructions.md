@@ -81,7 +81,7 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - [`nfs/deploy.sh`](../nfs/deploy.sh) - NFS deployment script
 
 #### 5. Linux Virtual Machine (`vm/`)
-- **Purpose**: Creates a Red Hat Enterprise Linux VM connected to the private network with no public IP
+- **Purpose**: Creates a Red Hat Enterprise Linux VM connected to the private network with no public IP and automated NFS mounting
 - **Scope**: Resource group-level deployment
 - **VM Configuration**:
   - OS: Red Hat Enterprise Linux 9.4 (latest)
@@ -89,6 +89,12 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - Authentication: SSH key-based (no password authentication)
   - Admin User: `azureuser`
   - Storage: Premium LRS managed disk with ReadWrite caching
+- **Cloud-Init Automation**:
+  - Automated `aznfs` package installation for optimized NFS 4.1 performance
+  - Automatic NFS share mounting at `/mount/{storageAccountName}/{nfsShareName}`
+  - Persistent mounting configuration via `/etc/fstab`
+  - Proper file ownership and permissions setup
+  - Network-aware configuration using Azure environment functions
 - **Network Configuration**:
   - Connected to `vmSubnet` (10.0.1.0/24)
   - Private IP allocation: Dynamic
@@ -99,9 +105,14 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - VM Agent enabled for Azure extensions
   - No direct internet connectivity
   - Access only via Azure Bastion
+- **NFS Integration**:
+  - Storage account name dynamically resolved using same logic as storage deployment
+  - Mount path: `/mount/{storageAccountPrefix}{uniqueString}/{nfsShareName}`
+  - Optimized mount options: `vers=4,minorversion=1,sec=sys,nconnect=4`
+  - Automatic recovery and persistent mounting across reboots
 - **Files**:
-  - [`vm/main.bicep`](../vm/main.bicep) - VM and network interface configuration
-  - [`vm/main.parameters.json`](../vm/main.parameters.json) - VM parameters
+  - [`vm/main.bicep`](../vm/main.bicep) - VM with cloud-init NFS mounting configuration
+  - [`vm/main.parameters.json`](../vm/main.parameters.json) - VM and NFS parameters
   - [`vm/deploy.sh`](../vm/deploy.sh) - VM deployment script
   - [`vm/generate-ssh-key.sh`](../vm/generate-ssh-key.sh) - SSH key generation helper
 
@@ -134,13 +145,14 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
 ### 🔧 Utility Scripts
 - [`scripts/cleanup.sh`](../scripts/cleanup.sh) - Safe resource group deletion with confirmation
 - [`scripts/get-rg.sh`](../scripts/get-rg.sh) - Quick resource group status check
+- [`scripts/remove-vm.sh`](../scripts/remove-vm.sh) - Safe VM removal while preserving other infrastructure
 
 ## Deployment Order
 1. **Resource Group**: Run `rg/deploy.sh` to create the resource group
 2. **Virtual Network**: Run `vnet/deploy.sh` to create network infrastructure
 3. **Storage Account**: Run `sa/deploy.sh` to create storage account with private endpoint
 4. **NFS File Share**: Run `nfs/deploy.sh` to create the NFS share on the storage account
-5. **Linux Virtual Machine**: Run `vm/deploy.sh` to create the Red Hat VM with SSH access
+5. **Linux Virtual Machine**: Run `vm/deploy.sh` to create the Red Hat VM with SSH access and automated NFS mounting
 6. **Azure Bastion**: Run `bas/deploy.sh` to create the Bastion host for secure VM access
 
 ## Network Security Rules
@@ -149,8 +161,39 @@ The VNet deployment includes NSGs with initial rules:
 - **Bastion Subnet**: Standard Azure Bastion rules
 - **Storage Subnet**: Prepared for private endpoint access
 
+## Cloud-Init Automation
+The VM deployment includes automated cloud-init configuration that runs on first boot:
+
+### Automated Setup Process
+1. **Microsoft Repository**: Configures Microsoft package repository for RHEL 9
+2. **Package Installation**: Downloads and installs `aznfs` package for optimized NFS 4.1 performance
+3. **Directory Creation**: Creates mount point at `/mount/{storageAccountName}/{nfsShareName}`
+4. **NFS Mounting**: Mounts the storage account NFS share with performance-optimized settings
+5. **Persistent Configuration**: Adds mount entry to `/etc/fstab` for automatic mounting on reboot
+6. **Permissions Setup**: Sets proper ownership for the admin user
+
+### Cloud-Init Script Features
+- **Base64 Encoded**: Script is encoded for secure parameter passing
+- **Network Aware**: Uses Azure environment functions for cross-cloud compatibility
+- **Performance Optimized**: Uses `nconnect=4` for enhanced NFS throughput
+- **Security Focused**: Implements proper NFS 4.1 security settings (`sec=sys`)
+- **Error Resilient**: Handles package installation and mounting gracefully
+
+### Validation Commands
+After VM deployment, users can validate the cloud-init setup:
+```bash
+# Check cloud-init status
+sudo cloud-init status
+
+# Verify NFS mount
+df -h | grep nfs
+ls -la /mount/sapifile*/nfsshare
+
+# Check persistent mount configuration
+cat /etc/fstab | grep nfs
+```
+
 ## Planned Components (Not Yet Implemented)
-- VM-to-NFS mount configuration
 - Additional NSG hardening rules
 
 ## Development Notes
