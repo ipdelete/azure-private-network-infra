@@ -48,7 +48,7 @@ Status: complete
 - Public IP for Bastion only
 - NSG rules to allow Bastion traffic
 
-Status: new
+Status: complete
 
 ---
 

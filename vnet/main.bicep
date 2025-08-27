@@ -219,6 +219,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-07-01' = {
         name: 'vmSubnet'
         properties: {
           addressPrefix: vmSubnetAddressPrefix
+          defaultOutboundAccess: false
           networkSecurityGroup: {
             id: vmSubnetNsg.id
           }
@@ -228,6 +229,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-07-01' = {
         name: 'AzureBastionSubnet'
         properties: {
           addressPrefix: bastionSubnetAddressPrefix
+          defaultOutboundAccess: false
           networkSecurityGroup: {
             id: bastionSubnetNsg.id
           }
@@ -237,6 +239,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-07-01' = {
         name: 'storageSubnet'
         properties: {
           addressPrefix: storageSubnetAddressPrefix
+          defaultOutboundAccess: false
           networkSecurityGroup: {
             id: storageSubnetNsg.id
           }
