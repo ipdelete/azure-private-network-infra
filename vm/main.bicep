@@ -16,9 +16,20 @@ param subnetName string = 'vmSubnet'
 @description('SSH public key for the admin user (ssh-rsa format)')
 param adminPublicKey string
 
+@description('Storage account name prefix (must match the one used in sa deployment)')
+param storageAccountPrefix string = 'sapifile'
+
+@description('NFS Share name')
+param nfsShareName string = 'nfsshare'
+
 // 🔧 Variables
 var nicName = '${vmName}-nic'
 var osDiskName = '${vmName}-osdisk'
+var storageAccountName = '${storageAccountPrefix}${uniqueString(resourceGroup().id)}'
+var mountPath = '/mount/${storageAccountName}/${nfsShareName}'
+
+// Cloud-init script to install aznfs and mount NFS share
+var cloudInitScript = base64('#cloud-config\npackage_update: true\npackages:\n  - curl\n  - rpm\nyum_repos:\n  packages-microsoft-prod:\n    name: packages-microsoft-prod\n    baseurl: https://packages.microsoft.com/yumrepos/microsoft-rhel9.0-prod\n    enabled: true\n    gpgcheck: true\n    gpgkey: https://packages.microsoft.com/keys/microsoft.asc\nruncmd:\n  - curl -sSL -O https://packages.microsoft.com/config/rhel/9/packages-microsoft-prod.rpm\n  - rpm -i packages-microsoft-prod.rpm\n  - rm packages-microsoft-prod.rpm\n  - yum update -y\n  - yum install -y aznfs\n  - mkdir -p ${mountPath}\n  - mount -t aznfs ${storageAccountName}.file.${environment().suffixes.storage}:/${storageAccountName}/${nfsShareName} ${mountPath} -o vers=4,minorversion=1,sec=sys,nconnect=4\n  - echo "${storageAccountName}.file.${environment().suffixes.storage}:/${storageAccountName}/${nfsShareName} ${mountPath} aznfs vers=4,minorversion=1,sec=sys,nconnect=4 0 0" >> /etc/fstab\n  - chown ${adminUsername}:${adminUsername} ${mountPath}')
 
 // � Reference existing VNet and subnet
 resource existingVNet 'Microsoft.Network/virtualNetworks@2024-07-01' existing = {
@@ -59,6 +70,7 @@ resource virtualMachine 'Microsoft.Compute/virtualMachines@2024-07-01' = {
     osProfile: {
       computerName: vmName
       adminUsername: adminUsername
+      customData: cloudInitScript
       linuxConfiguration: {
         disablePasswordAuthentication: true
         enableVMAgentPlatformUpdates: false
