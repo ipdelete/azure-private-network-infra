@@ -80,15 +80,41 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - [`nfs/main.parameters.json`](nfs/main.parameters.json) - NFS parameters
   - [`nfs/deploy.sh`](nfs/deploy.sh) - NFS deployment script
 
+#### 5. Linux Virtual Machine (`vm/`)
+- **Purpose**: Creates a Red Hat Enterprise Linux VM connected to the private network with no public IP
+- **Scope**: Resource group-level deployment
+- **VM Configuration**:
+  - OS: Red Hat Enterprise Linux 9.4 (latest)
+  - Size: `Standard_B2s` (configurable)
+  - Authentication: SSH key-based (no password authentication)
+  - Admin User: `azureuser`
+  - Storage: Premium LRS managed disk with ReadWrite caching
+- **Network Configuration**:
+  - Connected to `vmSubnet` (10.0.1.0/24)
+  - Private IP allocation: Dynamic
+  - No public IP address (zero internet access)
+  - Protected by NSG allowing SSH from Bastion subnet only
+- **Security Features**:
+  - SSH key authentication only (password auth disabled)
+  - VM Agent enabled for Azure extensions
+  - No direct internet connectivity
+  - Access only via Azure Bastion (when deployed)
+- **Files**:
+  - [`vm/main.bicep`](vm/main.bicep) - VM and network interface configuration
+  - [`vm/main.parameters.json`](vm/main.parameters.json) - VM parameters
+  - [`vm/deploy.sh`](vm/deploy.sh) - VM deployment script
+  - [`vm/generate-ssh-key.sh`](vm/generate-ssh-key.sh) - SSH key generation helper
+
 ### 🔧 Utility Scripts
-- [`cleanup.sh`](cleanup.sh) - Safe resource group deletion with confirmation
-- [`get-rg.sh`](get-rg.sh) - Quick resource group status check
+- [`scripts/cleanup.sh`](scripts/cleanup.sh) - Safe resource group deletion with confirmation
+- [`scripts/get-rg.sh`](scripts/get-rg.sh) - Quick resource group status check
 
 ## Deployment Order
 1. **Resource Group**: Run `rg/deploy.sh` to create the resource group
 2. **Virtual Network**: Run `vnet/deploy.sh` to create network infrastructure
 3. **Storage Account**: Run `sa/deploy.sh` to create storage account with private endpoint
 4. **NFS File Share**: Run `nfs/deploy.sh` to create the NFS share on the storage account
+5. **Linux Virtual Machine**: Run `vm/deploy.sh` to create the Red Hat VM with SSH access
 
 ## Network Security Rules
 The VNet deployment includes NSGs with initial rules:
@@ -97,8 +123,8 @@ The VNet deployment includes NSGs with initial rules:
 - **Storage Subnet**: Prepared for private endpoint access
 
 ## Planned Components (Not Yet Implemented)
-- Linux Virtual Machine with no public IP
 - Azure Bastion host for secure access
+- VM-to-NFS mount configuration
 - Additional NSG hardening rules
 
 ## Development Notes

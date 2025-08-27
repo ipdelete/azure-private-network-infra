@@ -37,7 +37,7 @@ Status: in-progress
 - Optional: Managed Identity
 - NSG rules to allow only Bastion and storage traffic
 
-Status: new
+Status: complete
 
 ---
 

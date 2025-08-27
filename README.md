@@ -2,6 +2,16 @@
 
 A secure Azure infrastructure deployment for hosting a Linux VM with NFS file share access, completely isolated from the internet with access only through Azure Bastion using SSH.
 
+## ⚠️ Important: First Time Setup
+
+**Before making any changes to this repository, run the git hooks setup:**
+
+```bash
+./scripts/setup-hooks.sh
+```
+
+This installs protective git hooks that prevent accidental commits of real SSH keys. The hooks ensure only the placeholder `YOUR_SSH_PUBLIC_KEY_HERE` can be committed to parameter files.
+
 ## 🏗️ Architecture Overview
 
 This project creates a zero-trust network architecture with the following components:
@@ -39,8 +49,18 @@ This project creates a zero-trust network architecture with the following compon
 │   ├── main.bicep         # NFS 4.1 share configuration
 │   ├── main.parameters.json
 │   └── deploy.sh
-├── cleanup.sh              # Safe resource cleanup script
-└── get-rg.sh              # Quick status check utility
+├── vm/                     # Linux Virtual Machine
+│   ├── main.bicep         # Red Hat VM and network interface
+│   ├── main.parameters.json
+│   ├── deploy.sh
+│   └── generate-ssh-key.sh # SSH key generation helper
+├── scripts/                # Utility and setup scripts
+│   ├── cleanup.sh         # Safe resource cleanup script
+│   ├── get-rg.sh          # Quick status check utility
+│   ├── pre-commit         # Git hook for SSH key protection
+│   ├── setup-hooks.sh     # Git hooks installation script
+│   └── README-hooks.md    # Git hooks documentation
+└── README.md              # This file
 ```
 
 ## 🚀 Quick Start
@@ -79,6 +99,15 @@ Deploy components in the following order:
    ./deploy.sh
    ```
 
+5. **Deploy Linux VM**
+   ```bash
+   cd ../vm/
+   # Generate SSH keys if needed
+   ./generate-ssh-key.sh
+   # Update main.parameters.json with your SSH public key
+   ./deploy.sh
+   ```
+
 ## 🌐 Network Design
 
 | Component | Subnet | Address Space | Purpose |
@@ -96,7 +125,16 @@ Deploy components in the following order:
 - **Quota**: 100 GB (configurable)
 - **Performance**: Premium tier for high IOPS
 
-## 🔧 Configuration
+## � Virtual Machine Configuration
+
+- **Operating System**: Red Hat Enterprise Linux 9.4
+- **VM Size**: Standard_B2s (2 vCPUs, 4 GB RAM)
+- **Authentication**: SSH key-based (password disabled)
+- **Network**: Private IP only (10.0.1.x/24)
+- **Storage**: Premium SSD managed disk
+- **Access**: Azure Bastion only (no public IP)
+
+## �🔧 Configuration
 
 ### Resource Naming Convention
 
@@ -121,10 +159,10 @@ Resources use timestamp-based naming for uniqueness:
 - [x] NFS 4.1 file share creation
 - [x] Network Security Groups
 - [x] Private DNS zones
+- [x] Red Hat Linux Virtual Machine with SSH access
 
 ### 🚧 Planned Components
 
-- [ ] Linux Virtual Machine deployment
 - [ ] Azure Bastion host setup
 - [ ] VM-to-NFS mount configuration
 - [ ] Additional security hardening
@@ -133,26 +171,40 @@ Resources use timestamp-based naming for uniqueness:
 
 | Script | Purpose |
 |--------|---------|
-| `cleanup.sh` | Safely delete all resources with confirmation |
-| `get-rg.sh` | Quick status check of resource group |
+| `scripts/cleanup.sh` | Safely delete all resources with confirmation |
+| `scripts/get-rg.sh` | Quick status check of resource group |
+| `scripts/setup-hooks.sh` | Install git hooks for SSH key protection |
 | `*/deploy.sh` | Individual component deployment scripts |
+| `vm/generate-ssh-key.sh` | Generate SSH key pair for VM access |
 
 ## 📝 Usage Examples
 
 ### Check Deployment Status
 ```bash
-./get-rg.sh
+./scripts/get-rg.sh
 ```
 
 ### Clean Up Resources
 ```bash
-./cleanup.sh
+./scripts/cleanup.sh
 ```
 
 ### Redeploy Single Component
 ```bash
 cd vnet/
 ./deploy.sh
+```
+
+### Generate SSH Keys for VM
+```bash
+cd vm/
+./generate-ssh-key.sh
+# Copy the public key to main.parameters.json
+```
+
+### Check VM Status
+```bash
+az vm show --resource-group aet-pi-localdev-es2-tst3 --name vm-pi-localdev
 ```
 
 ## 🔍 Troubleshooting
@@ -174,6 +226,12 @@ az network vnet show --resource-group aet-pi-localdev-es2-tst3 --name vnet-pi-lo
 
 # Check storage account private endpoint
 az storage account show --name <storage-account-name> --resource-group aet-pi-localdev-es2-tst3
+
+# Verify VM configuration and network settings
+az vm show --resource-group aet-pi-localdev-es2-tst3 --name vm-pi-localdev --query "{Name:name, Size:hardwareProfile.vmSize, Status:provisioningState}"
+
+# Check VM network interface (should have no public IP)
+az network nic show --resource-group aet-pi-localdev-es2-tst3 --name vm-pi-localdev-nic --query "{PrivateIP:ipConfigurations[0].privateIPAddress, HasPublicIP:ipConfigurations[0].publicIPAddress!=null}"
 ```
 
 ## 🤝 Contributing
