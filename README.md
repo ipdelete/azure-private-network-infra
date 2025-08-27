@@ -46,6 +46,11 @@ This project creates a zero-trust network architecture with the following compon
 ## 📁 Project Structure
 
 ```
+├── complete/               # Complete infrastructure deployment
+│   ├── main.bicep         # Complete infrastructure deployment template
+│   ├── main.parameters.json # Parameters for complete deployment
+│   ├── deploy.sh          # Complete infrastructure deployment script
+│   └── validate.sh        # Infrastructure validation script
 ├── rg/                     # Resource Group deployment
 │   ├── main.bicep         # Resource group Bicep template
 │   ├── main.parameters.json
@@ -122,7 +127,29 @@ The VM deployment includes automated cloud-init configuration that:
 - Bicep CLI extension
 - Appropriate Azure subscription permissions
 
-### Deployment Steps
+> **📁 Note**: The complete infrastructure deployment files are located in the `complete/` folder, while individual component deployments remain in their respective folders (`rg/`, `vnet/`, `sa/`, etc.).
+
+### Option 1: Complete Infrastructure Deployment (Recommended)
+
+Deploy the entire infrastructure with a single command:
+
+```bash
+# 1. Generate SSH keys (if needed)
+cd vm/
+./generate-ssh-key.sh
+
+# 2. Update complete/main.parameters.json with your SSH public key
+# Replace 'YOUR_SSH_PUBLIC_KEY_HERE' with your actual SSH public key
+
+# 3. Deploy the complete infrastructure
+cd ../complete/
+./deploy.sh
+
+# 4. Validate the deployment
+./validate.sh
+```
+
+### Option 2: Individual Component Deployment
 
 Deploy components in the following order:
 
@@ -240,15 +267,14 @@ Resources use timestamp-based naming for uniqueness:
 - [x] Red Hat Linux Virtual Machine with SSH access
 - [x] Azure Bastion host for secure VM access
 - [x] Cloud-init automated NFS mounting with aznfs
-
-### 🚧 Planned Components
-
-- [ ] Additional security hardening
+- [x] Additional security hardening
 
 ## 🛠️ Management Scripts
 
 | Script | Purpose |
 |--------|---------|
+| `complete/deploy.sh` | Complete infrastructure deployment (recommended) |
+| `complete/validate.sh` | Validate deployment and show status of all components |
 | `scripts/cleanup.sh` | Safely delete all resources with confirmation |
 | `scripts/get-rg.sh` | Quick status check of resource group |
 | `scripts/setup-hooks.sh` | Install git hooks for SSH key protection |
@@ -256,6 +282,20 @@ Resources use timestamp-based naming for uniqueness:
 | `vm/generate-ssh-key.sh` | Generate SSH key pair for VM access |
 
 ## 📝 Usage Examples
+
+### Complete Infrastructure Deployment
+```bash
+# Deploy entire infrastructure
+cd complete/
+./deploy.sh
+
+# Validate deployment
+./validate.sh
+
+# Clean up when done
+cd ../scripts/
+./cleanup.sh
+```
 
 ### Check Deployment Status
 ```bash
@@ -277,7 +317,7 @@ cd vnet/
 ```bash
 cd vm/
 ./generate-ssh-key.sh
-# Copy the public key to main.parameters.json
+# Copy the public key to complete/main.parameters.json
 ```
 
 ### Access VM via Bastion

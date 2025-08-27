@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "rgName": {
+      "value": "aet-pi-localdev-es2-tst4"
+    },
+    "location": {
+      "value": "eastus2"
+    },
+    "vnetName": {
+      "value": "vnet-pi-localdev"
+    },
+    "vnetAddressSpace": {
+      "value": "10.0.0.0/16"
+    },
+    "vmSubnetAddressPrefix": {
+      "value": "10.0.1.0/24"
+    },
+    "bastionSubnetAddressPrefix": {
+      "value": "10.0.2.0/24"
+    },
+    "storageSubnetAddressPrefix": {
+      "value": "10.0.3.0/24"
+    },
+    "storageAccountPrefix": {
+      "value": "sapifile"
+    },
+    "nfsShareName": {
+      "value": "nfsshare"
+    },
+    "shareQuotaGb": {
+      "value": 100
+    },
+    "vmName": {
+      "value": "vm-pi-localdev"
+    },
+    "adminUsername": {
+      "value": "azureuser"
+    },
+    "vmSize": {
+      "value": "Standard_B2s"
+    },
+    "adminPublicKey": {
+      "value": "YOUR_SSH_PUBLIC_KEY_HERE"
+    },
+    "bastionHostName": {
+      "value": "bastion-pi-localdev"
+    },
+    "bastionSku": {
+      "value": "Basic"
+    }
+  }
+}
