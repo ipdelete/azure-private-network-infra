@@ -5,9 +5,11 @@ A secure Azure infrastructure deployment for hosting a Linux VM with NFS file sh
 - **Operating System**: Red Hat Enterprise Linux 9.4
 - **VM Size**: Standard_B2s (2 vCPUs, 4 GB RAM)
 - **Authentication**: SSH key-based (password disabled)
-- **Network**: Private IP only (10.0.1.x/24)
+- **Network**: Private IP only (10.0.1.x/24) with NAT Gateway for outbound access
 - **Storage**: Premium SSD managed disk
 - **Access**: Azure Bastion only (no public IP)
+- **Cloud-Init**: Automated NFS mounting and aznfs installation
+- **NFS Mount**: Automatically mounted at `/mount/{storageAccountName}/{nfsShareName}`
 - **Cloud-Init**: Automated NFS mounting and aznfs installation
 - **NFS Mount**: Automatically mounted at `/mount/{storageAccountName}/{nfsShareName}`olated from the internet with access only through Azure Bastion using SSH.
 
@@ -26,6 +28,7 @@ This installs protective git hooks that prevent accidental commits of real SSH k
 This project creates a zero-trust network architecture with the following components:
 
 - **Virtual Network**: Segmented subnets for different resource types
+- **NAT Gateway**: Secure outbound internet connectivity for private VMs
 - **Storage Account**: Premium FileStorage with NFS 4.1 support
 - **Private Endpoints**: Secure connectivity without internet exposure
 - **Network Security Groups**: Granular traffic control
@@ -33,7 +36,8 @@ This project creates a zero-trust network architecture with the following compon
 
 ## 🔒 Security Features
 
-- ✅ **Zero Internet Access**: All resources are private with no public IPs (except Bastion)
+- ✅ **Zero Internet Access**: All resources are private with no public IPs (except Bastion and NAT Gateway)
+- ✅ **Secure Outbound Access**: NAT Gateway provides secure outbound connectivity without inbound exposure
 - ✅ **Private Endpoints**: Storage access through private network only
 - ✅ **Network Segmentation**: Dedicated subnets with security groups
 - ✅ **Encrypted Storage**: HTTPS-only with TLS 1.2 minimum
@@ -47,7 +51,7 @@ This project creates a zero-trust network architecture with the following compon
 │   ├── main.parameters.json
 │   └── deploy.sh
 ├── vnet/                   # Virtual Network infrastructure
-│   ├── main.bicep         # VNet, subnets, and NSGs
+│   ├── main.bicep         # VNet, subnets, NAT Gateway, and NSGs
 │   ├── main.parameters.json
 │   └── deploy.sh
 ├── sa/                     # Storage Account with Private Endpoint
@@ -166,9 +170,21 @@ Deploy components in the following order:
 | Component | Subnet | Address Space | Purpose |
 |-----------|--------|---------------|---------|
 | VNet | - | `10.0.0.0/16` | Main virtual network |
-| VM Subnet | vmSubnet | `10.0.1.0/24` | Linux VM placement |
+| VM Subnet | vmSubnet | `10.0.1.0/24` | Linux VM placement (with NAT Gateway) |
 | Bastion Subnet | AzureBastionSubnet | `10.0.2.0/24` | Azure Bastion host |
 | Storage Subnet | storageSubnet | `10.0.3.0/24` | Private endpoints |
+
+### NAT Gateway Configuration
+
+- **Public IP**: Standard SKU static allocation for outbound connectivity
+- **NAT Gateway**: Standard SKU with 4-minute idle timeout
+- **Associated Subnet**: VM Subnet (10.0.1.0/24)
+- **Purpose**: Provides secure outbound internet access for private VMs
+- **Benefits**: 
+  - Package downloads and system updates
+  - Access to Azure services and external repositories
+  - No inbound internet connectivity (maintains security)
+  - Consistent outbound public IP address
 
 ## 💾 Storage Configuration
 
@@ -215,7 +231,8 @@ Resources use timestamp-based naming for uniqueness:
 ### ✅ Completed Components
 
 - [x] Resource Group deployment
-- [x] Virtual Network with subnet segmentation
+- [x] Virtual Network with subnet segmentation and NAT Gateway
+- [x] NAT Gateway for secure outbound internet connectivity
 - [x] Storage Account with private endpoint
 - [x] NFS 4.1 file share creation
 - [x] Network Security Groups

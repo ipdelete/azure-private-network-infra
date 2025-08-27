@@ -24,16 +24,21 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - [`rg/deploy.sh`](../rg/deploy.sh) - Deployment script
 
 #### 2. Virtual Network Infrastructure (`vnet/`)
-- **Purpose**: Creates the network foundation with proper segmentation
+- **Purpose**: Creates the network foundation with proper segmentation and secure outbound connectivity
 - **Scope**: Resource group-level deployment
 - **Network Design**:
   - VNet: `10.0.0.0/16` (`vnet-pi-localdev`)
-  - VM Subnet: `10.0.1.0/24` (for the Linux VM)
+  - VM Subnet: `10.0.1.0/24` (for the Linux VM with NAT Gateway)
   - Bastion Subnet: `10.0.2.0/24` (`AzureBastionSubnet`)
   - Storage Subnet: `10.0.3.0/24` (for NFS private endpoint)
+- **NAT Gateway Configuration**:
+  - Public IP: Standard SKU static allocation for outbound connectivity
+  - NAT Gateway: Standard SKU with 4-minute idle timeout
+  - VM Subnet Association: Provides secure outbound internet access for private VMs
+  - Benefits: Package downloads, updates, and Azure service access without inbound exposure
 - **Security**: Network Security Groups configured for each subnet
 - **Files**:
-  - [`vnet/main.bicep`](../vnet/main.bicep) - VNet and subnet configuration
+  - [`vnet/main.bicep`](../vnet/main.bicep) - VNet, subnets, NAT Gateway, and NSG configuration
   - [`vnet/main.parameters.json`](../vnet/main.parameters.json) - Network parameters
   - [`vnet/deploy.sh`](../vnet/deploy.sh) - VNet deployment script
 
@@ -96,14 +101,14 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - Proper file ownership and permissions setup
   - Network-aware configuration using Azure environment functions
 - **Network Configuration**:
-  - Connected to `vmSubnet` (10.0.1.0/24)
+  - Connected to `vmSubnet` (10.0.1.0/24) with NAT Gateway for outbound connectivity
   - Private IP allocation: Dynamic
-  - No public IP address (zero internet access)
+  - No public IP address (secure outbound access via NAT Gateway)
   - Protected by NSG allowing SSH from Bastion subnet only
 - **Security Features**:
   - SSH key authentication only (password auth disabled)
   - VM Agent enabled for Azure extensions
-  - No direct internet connectivity
+  - Secure outbound internet access via NAT Gateway (no inbound internet access)
   - Access only via Azure Bastion
 - **NFS Integration**:
   - Storage account name dynamically resolved using same logic as storage deployment
