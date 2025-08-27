@@ -54,6 +54,10 @@ This project creates a zero-trust network architecture with the following compon
 │   ├── main.parameters.json
 │   ├── deploy.sh
 │   └── generate-ssh-key.sh # SSH key generation helper
+├── bas/                    # Azure Bastion Host
+│   ├── main.bicep         # Bastion host and public IP
+│   ├── main.parameters.json
+│   └── deploy.sh
 ├── scripts/                # Utility and setup scripts
 │   ├── cleanup.sh         # Safe resource cleanup script
 │   ├── get-rg.sh          # Quick status check utility
@@ -108,6 +112,12 @@ Deploy components in the following order:
    ./deploy.sh
    ```
 
+6. **Deploy Azure Bastion**
+   ```bash
+   cd ../bas/
+   ./deploy.sh
+   ```
+
 ## 🌐 Network Design
 
 | Component | Subnet | Address Space | Purpose |
@@ -133,6 +143,14 @@ Deploy components in the following order:
 - **Network**: Private IP only (10.0.1.x/24)
 - **Storage**: Premium SSD managed disk
 - **Access**: Azure Bastion only (no public IP)
+
+## 🏰 Azure Bastion Configuration
+
+- **SKU**: Basic (configurable to Standard)
+- **Public IP**: Static Standard SKU (required for Bastion)
+- **Access Method**: Azure Portal → VM → Connect → Bastion
+- **Authentication**: SSH with private key
+- **Security**: TLS-encrypted HTTPS connections
 
 ## �🔧 Configuration
 
@@ -160,10 +178,10 @@ Resources use timestamp-based naming for uniqueness:
 - [x] Network Security Groups
 - [x] Private DNS zones
 - [x] Red Hat Linux Virtual Machine with SSH access
+- [x] Azure Bastion host for secure VM access
 
 ### 🚧 Planned Components
 
-- [ ] Azure Bastion host setup
 - [ ] VM-to-NFS mount configuration
 - [ ] Additional security hardening
 
@@ -202,6 +220,15 @@ cd vm/
 # Copy the public key to main.parameters.json
 ```
 
+### Access VM via Bastion
+```bash
+# Through Azure Portal:
+# 1. Navigate to VM: vm-pi-localdev
+# 2. Click "Connect" → "Bastion"
+# 3. Use SSH authentication with private key
+# 4. Username: azureuser
+```
+
 ### Check VM Status
 ```bash
 az vm show --resource-group aet-pi-localdev-es2-tst3 --name vm-pi-localdev
@@ -232,6 +259,9 @@ az vm show --resource-group aet-pi-localdev-es2-tst3 --name vm-pi-localdev --que
 
 # Check VM network interface (should have no public IP)
 az network nic show --resource-group aet-pi-localdev-es2-tst3 --name vm-pi-localdev-nic --query "{PrivateIP:ipConfigurations[0].privateIPAddress, HasPublicIP:ipConfigurations[0].publicIPAddress!=null}"
+
+# Check Bastion status
+az network bastion show --resource-group aet-pi-localdev-es2-tst3 --name bastion-pi-localdev --query "{Name:name, State:provisioningState, Sku:sku.name}"
 ```
 
 ## 🤝 Contributing

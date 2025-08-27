@@ -98,12 +98,38 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
   - SSH key authentication only (password auth disabled)
   - VM Agent enabled for Azure extensions
   - No direct internet connectivity
-  - Access only via Azure Bastion (when deployed)
+  - Access only via Azure Bastion
 - **Files**:
   - [`vm/main.bicep`](../vm/main.bicep) - VM and network interface configuration
   - [`vm/main.parameters.json`](../vm/main.parameters.json) - VM parameters
   - [`vm/deploy.sh`](../vm/deploy.sh) - VM deployment script
   - [`vm/generate-ssh-key.sh`](../vm/generate-ssh-key.sh) - SSH key generation helper
+
+#### 6. Azure Bastion Host (`bas/`)
+- **Purpose**: Provides secure SSH access to the Linux VM without exposing it to the internet
+- **Scope**: Resource group-level deployment
+- **Bastion Configuration**:
+  - SKU: `Basic` (configurable to Standard)
+  - Location: `eastus2`
+  - Public IP: Standard SKU static allocation (required for Bastion)
+  - Subnet: Uses dedicated `AzureBastionSubnet` (10.0.2.0/24)
+- **Network Configuration**:
+  - Deployed to `AzureBastionSubnet` with proper NSG rules
+  - Secure HTTPS-based SSH/RDP access
+  - No direct VM public IP exposure required
+- **Security Features**:
+  - TLS-encrypted connections via HTTPS
+  - Azure AD integration for access control
+  - Session recording capabilities (Standard SKU)
+  - Network isolation from internet
+- **Access Method**:
+  - Azure Portal: VM → Connect → Bastion
+  - SSH authentication with private key
+  - Username: `azureuser`
+- **Files**:
+  - [`bas/main.bicep`](../bas/main.bicep) - Bastion host and public IP configuration
+  - [`bas/main.parameters.json`](../bas/main.parameters.json) - Bastion parameters
+  - [`bas/deploy.sh`](../bas/deploy.sh) - Bastion deployment script
 
 ### 🔧 Utility Scripts
 - [`scripts/cleanup.sh`](../scripts/cleanup.sh) - Safe resource group deletion with confirmation
@@ -115,6 +141,7 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
 3. **Storage Account**: Run `sa/deploy.sh` to create storage account with private endpoint
 4. **NFS File Share**: Run `nfs/deploy.sh` to create the NFS share on the storage account
 5. **Linux Virtual Machine**: Run `vm/deploy.sh` to create the Red Hat VM with SSH access
+6. **Azure Bastion**: Run `bas/deploy.sh` to create the Bastion host for secure VM access
 
 ## Network Security Rules
 The VNet deployment includes NSGs with initial rules:
@@ -123,7 +150,6 @@ The VNet deployment includes NSGs with initial rules:
 - **Storage Subnet**: Prepared for private endpoint access
 
 ## Planned Components (Not Yet Implemented)
-- Azure Bastion host for secure access
 - VM-to-NFS mount configuration
 - Additional NSG hardening rules
 
