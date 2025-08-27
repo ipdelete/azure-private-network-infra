@@ -8,6 +8,37 @@ param storageSubnetAddressPrefix string = '10.0.3.0/24'
 
 var location = resourceGroup().location
 
+// Public IP for NAT Gateway
+resource natGatewayPublicIp 'Microsoft.Network/publicIPAddresses@2024-07-01' = {
+  name: 'pip-natgateway-${vnetName}'
+  location: location
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    publicIPAllocationMethod: 'Static'
+    publicIPAddressVersion: 'IPv4'
+    idleTimeoutInMinutes: 4
+  }
+}
+
+// NAT Gateway
+resource natGateway 'Microsoft.Network/natGateways@2024-07-01' = {
+  name: 'natgw-${vnetName}'
+  location: location
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    publicIpAddresses: [
+      {
+        id: natGatewayPublicIp.id
+      }
+    ]
+    idleTimeoutInMinutes: 4
+  }
+}
+
 // Network Security Groups
 resource vmSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-07-01' = {
   name: 'nsg-vmSubnet'
@@ -223,6 +254,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-07-01' = {
           networkSecurityGroup: {
             id: vmSubnetNsg.id
           }
+          natGateway: {
+            id: natGateway.id
+          }
         }
       }
       {
@@ -255,3 +289,5 @@ output vnetName string = vnet.name
 output vmSubnetId string = vnet.properties.subnets[0].id
 output bastionSubnetId string = vnet.properties.subnets[1].id
 output storageSubnetId string = vnet.properties.subnets[2].id
+output natGatewayId string = natGateway.id
+output natGatewayPublicIpAddress string = natGatewayPublicIp.properties.ipAddress
