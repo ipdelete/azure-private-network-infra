@@ -19,7 +19,7 @@ param bastionSubnetName string = 'AzureBastionSubnet'
 
 @description('Bastion SKU')
 @allowed(['Basic', 'Standard'])
-param bastionSku string = 'Basic'
+param bastionSku string = 'Standard'
 
 // 🔧 Variables
 var publicIpName = '${bastionHostName}-pip'
@@ -55,6 +55,7 @@ resource bastionHost 'Microsoft.Network/bastionHosts@2024-05-01' = {
     name: bastionSku
   }
   properties: {
+    enableTunneling: true
     ipConfigurations: [
       {
         name: 'IpConf'
