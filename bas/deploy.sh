@@ -5,7 +5,7 @@
 # ─────────────────────────────────────────────
 
 # 🔧 Configurable variables
-RESOURCE_GROUP_NAME="aet-pi-localdev-es2-tst3"  # Resource group name
+RESOURCE_GROUP_NAME="aet-pi-localdev-es2-tst4"  # Resource group name
 BICEP_FILE="main.bicep"               # Bicep template file
 PARAM_FILE="main.parameters.json"    # Parameter file
 DEPLOYMENT_NAME="bastion-deploy-$(date +%s)"  # Unique deployment name

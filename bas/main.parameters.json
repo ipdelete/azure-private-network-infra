@@ -15,7 +15,7 @@
       "value": "AzureBastionSubnet"
     },
     "bastionSku": {
-      "value": "Basic"
+      "value": "Standard"
     }
   }
 }

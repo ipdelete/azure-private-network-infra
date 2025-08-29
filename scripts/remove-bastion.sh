@@ -60,10 +60,18 @@ if check_resource_exists "bastion" "$BASTION_NAME"; then
     az network bastion delete \
         --resource-group "$RESOURCE_GROUP" \
         --name "$BASTION_NAME" \
-        --no-wait 
+        --no-wait # no-wait with polling because otherwise this times out and kills the script
     
     if [ $? -eq 0 ]; then
-        echo "✅ Bastion Host deletion completed successfully"
+        echo "✅ Bastion Host deletion initiated successfully"
+        
+        # Wait for Bastion deletion to complete before proceeding
+        echo "⏳ Waiting for Bastion deletion to complete..."
+        while check_resource_exists "bastion" "$BASTION_NAME"; do
+            echo "   Still deleting Bastion Host..."
+            sleep 30
+        done
+        echo "✅ Bastion Host deletion completed"
     else
         echo "❌ Failed to delete Bastion Host"
         exit 1
