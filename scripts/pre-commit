@@ -96,4 +96,40 @@ if [ $HOOK_FAILED -eq 1 ]; then
 fi
 
 echo -e "${GREEN}✓ SSH key protection check passed${NC}"
+
+# ─────────────────────────────────────────────
+# 🔒 VNet Peering Invariant Check
+# ─────────────────────────────────────────────
+# The PKI lab architecture requires network isolation between VNets.
+# The storage account (via private endpoints) is the ONLY bridge.
+# VNet peering would violate this invariant.
+
+echo -e "${YELLOW}Checking for VNet peering declarations in staged Bicep files...${NC}"
+
+PEERING_VIOLATIONS=""
+STAGED_BICEP_FILES=$(git diff --cached --name-only -- '*.bicep')
+
+for file in $STAGED_BICEP_FILES; do
+    if [ -f "$file" ]; then
+        PEERING_MATCH=$(git show ":${file}" | grep -i "virtualNetworkPeerings" || true)
+        if [ -n "$PEERING_MATCH" ]; then
+            PEERING_VIOLATIONS="${PEERING_VIOLATIONS}\n  • ${file}"
+        fi
+    fi
+done
+
+if [ -n "$PEERING_VIOLATIONS" ]; then
+    echo -e "${RED}ERROR: VNet peering declaration detected!${NC}"
+    echo -e "${RED}The following files contain VNet peering resources:${PEERING_VIOLATIONS}${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  Architecture invariant: VNets must NOT be peered.${NC}"
+    echo -e "${YELLOW}The PKI lab uses private endpoints on a shared storage account${NC}"
+    echo -e "${YELLOW}as the only bridge between VNets. VNet peering would violate${NC}"
+    echo -e "${YELLOW}the network isolation model.${NC}"
+    echo ""
+    echo -e "${YELLOW}Remove the peering resource and use private endpoints instead.${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ VNet peering invariant check passed${NC}"
 exit 0

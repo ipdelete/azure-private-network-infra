@@ -3,7 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "vmName": {
-      "value": "vm-pi-localdev"
+      "value": "vm-pki-ca"
     },
     "adminUsername": {
       "value": "azureuser"
@@ -14,11 +14,11 @@
     "adminPublicKey": {
       "value": "YOUR_SSH_PUBLIC_KEY_HERE"
     },
-    "storageAccountPrefix": {
-      "value": "sapifile"
+    "caName": {
+      "value": "PKI Lab CA"
     },
-    "nfsShareName": {
-      "value": "nfsshare"
+    "raProvisionerName": {
+      "value": "ra-provisioner"
     }
   }
 }
