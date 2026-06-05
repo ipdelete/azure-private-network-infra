@@ -19,6 +19,9 @@
     },
     "nfsShareName": {
       "value": "nfsshare"
+    },
+    "pkiStorageAccountName": {
+      "value": "sapki4x6ipx4ntpsqk"
     }
   }
 }
