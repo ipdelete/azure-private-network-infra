@@ -16,6 +16,9 @@
     },
     "storageSubnetAddressPrefix": {
       "value": "10.1.3.0/24"
+    },
+    "bastionSubnetAddressPrefix": {
+      "value": "10.1.4.0/24"
     }
   }
 }

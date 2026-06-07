@@ -14,7 +14,7 @@
 set -e  # Exit on any error
 
 # 🔧 Configuration
-LOCATION="eastus2"
+LOCATION="centralus"
 BICEP_FILE="main.bicep"
 PARAM_FILE="main.parameters.json"
 DEPLOYMENT_NAME="complete-infra-deploy-$(date +%s)"

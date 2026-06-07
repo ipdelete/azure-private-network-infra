@@ -7,9 +7,6 @@ param location string = resourceGroup().location
 @description('Storage account name prefix')
 param storageAccountPrefix string = 'sapifile'
 
-@description('Virtual Network Resource Group Name')
-param vnetResourceGroupName string = resourceGroup().name
-
 @description('Virtual Network Name')
 param vnetName string = 'vnet-pi-localdev'
 
@@ -24,7 +21,6 @@ var privateDnsZoneName = 'privatelink.file.${environment().suffixes.storage}'
 // Reference to existing VNet
 resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' existing = {
   name: vnetName
-  scope: resourceGroup(vnetResourceGroupName)
 }
 
 // Reference to existing storage subnet

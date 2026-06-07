@@ -6,7 +6,7 @@
       "value": "bastion-pi-localdev"
     },
     "location": {
-      "value": "eastus2"
+      "value": "centralus"
     },
     "vnetName": {
       "value": "vnet-pi-localdev"

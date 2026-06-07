@@ -5,7 +5,7 @@
 # ─────────────────────────────────────────────
 
 # 🔧 Configurable variables
-LOCATION="eastus2"                      # Deployment location
+LOCATION="centralus"                    # Deployment location
 BICEP_FILE="main.bicep"               # Bicep template file
 PARAM_FILE="main.parameters.json"    # Parameter file
 DEPLOYMENT_NAME="rg-deploy-$(date +%s)"  # Unique deployment name

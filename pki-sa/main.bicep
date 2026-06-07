@@ -6,7 +6,7 @@ targetScope = 'resourceGroup'
 // Deploys a blob storage account with:
 // • Two containers: csr/ and certs/
 // • Private endpoints in both the PKI and existing VNets
-// • Private DNS zone linked to both VNets
+// • Separate private DNS zones so each non-peered VNet resolves to its local private endpoint
 // • No public network access
 
 // 🔧 Parameters
@@ -27,6 +27,9 @@ param existingVnetName string = 'vnet-pi-localdev'
 
 @description('Existing storage subnet name')
 param existingStorageSubnetName string = 'storageSubnet'
+
+@description('Resource group that hosts the PKI VNet private DNS zone')
+param pkiDnsResourceGroupName string = 'aet-pki-dns-centralus-tst4'
 
 // 🔧 Variables
 var storageAccountName = '${storageAccountPrefix}${uniqueString(resourceGroup().id)}'
@@ -103,35 +106,33 @@ resource certsContainer 'Microsoft.Storage/storageAccounts/blobServices/containe
 }
 
 // ─────────────────────────────────────────────
-// 🔒 Private DNS Zone (shared by both VNets)
+// 🔒 Private DNS Zones
 // ─────────────────────────────────────────────
 
-resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+resource existingPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: privateDnsZoneName
   location: 'global'
 }
 
-resource dnsLinkPkiVnet 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
-  name: '${privateDnsZoneName}-pki-link'
-  parent: privateDnsZone
-  location: 'global'
-  properties: {
-    registrationEnabled: false
-    virtualNetwork: {
-      id: pkiVnet.id
-    }
-  }
-}
-
 resource dnsLinkExistingVnet 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   name: '${privateDnsZoneName}-existing-link'
-  parent: privateDnsZone
+  parent: existingPrivateDnsZone
   location: 'global'
   properties: {
     registrationEnabled: false
     virtualNetwork: {
       id: existingVnet.id
     }
+  }
+}
+
+module pkiPrivateDns './private-dns-zone.bicep' = {
+  name: 'pki-blob-private-dns'
+  scope: resourceGroup(pkiDnsResourceGroupName)
+  params: {
+    privateDnsZoneName: privateDnsZoneName
+    virtualNetworkId: pkiVnet.id
+    linkName: '${privateDnsZoneName}-pki-link'
   }
 }
 
@@ -168,7 +169,7 @@ resource pkiDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroup
       {
         name: privateDnsZoneName
         properties: {
-          privateDnsZoneId: privateDnsZone.id
+    privateDnsZoneId: pkiPrivateDns.outputs.privateDnsZoneId
         }
       }
     ]
@@ -208,7 +209,7 @@ resource existingDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZone
       {
         name: privateDnsZoneName
         properties: {
-          privateDnsZoneId: privateDnsZone.id
+    privateDnsZoneId: existingPrivateDnsZone.id
         }
       }
     ]
@@ -223,6 +224,7 @@ output storageAccountName string = storageAccount.name
 output storageAccountId string = storageAccount.id
 output csrContainerName string = csrContainer.name
 output certsContainerName string = certsContainer.name
-output privateDnsZoneId string = privateDnsZone.id
+output existingPrivateDnsZoneId string = existingPrivateDnsZone.id
+output pkiPrivateDnsZoneId string = pkiPrivateDns.outputs.privateDnsZoneId
 output pkiPrivateEndpointId string = pkiPrivateEndpoint.id
 output existingPrivateEndpointId string = existingPrivateEndpoint.id

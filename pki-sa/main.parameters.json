@@ -16,6 +16,9 @@
     },
     "existingStorageSubnetName": {
       "value": "storageSubnet"
+    },
+    "pkiDnsResourceGroupName": {
+      "value": "aet-pki-dns-centralus-tst4"
     }
   }
 }

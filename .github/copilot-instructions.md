@@ -17,7 +17,7 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
 - **Purpose**: Creates the foundational resource group for all resources
 - **Scope**: Subscription-level deployment
 - **Resource Group**: `aet-pi-localdev-es2-tst3`
-- **Location**: `eastus2`
+- **Location**: `centralus`
 - **Files**:
   - [`rg/main.bicep`](../rg/main.bicep) - Bicep template for resource group creation
   - [`rg/main.parameters.json`](../rg/main.parameters.json) - Parameters file
@@ -126,7 +126,7 @@ This project creates a secure Azure infrastructure for deploying a Linux VM with
 - **Scope**: Resource group-level deployment
 - **Bastion Configuration**:
   - SKU: `Basic` (configurable to Standard)
-  - Location: `eastus2`
+  - Location: `centralus`
   - Public IP: Standard SKU static allocation (required for Bastion)
   - Subnet: Uses dedicated `AzureBastionSubnet` (10.0.2.0/24)
 - **Network Configuration**:

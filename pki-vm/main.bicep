@@ -30,7 +30,7 @@ var nicName = '${vmName}-nic'
 var osDiskName = '${vmName}-osdisk'
 
 // Cloud-init script to install and bootstrap step-ca
-var cloudInitScript = base64('''#cloud-config
+var cloudInitTemplate = '''#cloud-config
 
 # Add Smallstep yum repository (packages installed in runcmd for resilience)
 yum_repos:
@@ -45,10 +45,12 @@ yum_repos:
 runcmd:
   # Install packages — use a script block to handle retries and avoid YAML quoting issues
   - |
-    for i in 1 2 3; do
+    for i in 1 2 3 4 5 6 7 8 9 10; do
       dnf install -y --disablerepo='rhel-*-eus-*' step-cli step-ca jq && break
-      sleep 15
+      sleep 30
     done
+    command -v step >/dev/null
+    command -v step-ca >/dev/null
   - /usr/bin/step version
   - /usr/bin/step-ca version
 
@@ -66,16 +68,17 @@ runcmd:
   # Initialize the CA non-interactively
   - |
     STEPPATH=/etc/step-ca step ca init \
-      --name "${caName}" \
+      --name "__CA_NAME__" \
       --dns "$CA_IP" \
       --dns "localhost" \
       --address ":443" \
-      --provisioner "${raProvisionerName}" \
+      --provisioner "__RA_PROVISIONER_NAME__" \
       --password-file /etc/step-ca-password.txt \
       --deployment-type standalone
 
   # Fix ownership
   - chown -R step:step /etc/step-ca
+  - chown step:step /etc/step-ca-password.txt
 
   # Create systemd unit for step-ca
   - |
@@ -110,7 +113,9 @@ runcmd:
   - |
     STEPPATH=/etc/step-ca step certificate fingerprint /etc/step-ca/certs/root_ca.crt \
       > /etc/step-ca/root-ca-fingerprint.txt 2>/dev/null || true
-''')
+'''
+
+var cloudInitScript = base64(replace(replace(cloudInitTemplate, '__CA_NAME__', caName), '__RA_PROVISIONER_NAME__', raProvisionerName))
 
 // 🌐 Reference existing VNet and subnet
 resource existingVNet 'Microsoft.Network/virtualNetworks@2024-07-01' existing = {

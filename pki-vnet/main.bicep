@@ -13,6 +13,7 @@ param vnetAddressSpace string = '10.1.0.0/16'
 param caSubnetAddressPrefix string = '10.1.1.0/24'
 param funcSubnetAddressPrefix string = '10.1.2.0/24'
 param storageSubnetAddressPrefix string = '10.1.3.0/24'
+param bastionSubnetAddressPrefix string = '10.1.4.0/24'
 
 var location = resourceGroup().location
 
@@ -61,11 +62,11 @@ resource caSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-07-01' = {
       {
         name: 'AllowBastionSSH'
         properties: {
-          description: 'Allow SSH from Bastion subnet in the existing VNet (via peering)'
+          description: 'Allow SSH from Bastion subnet in the PKI VNet'
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '22'
-          sourceAddressPrefix: '10.0.2.0/24'
+          sourceAddressPrefix: bastionSubnetAddressPrefix
           destinationAddressPrefix: '*'
           access: 'Allow'
           priority: 1000
@@ -110,9 +111,23 @@ resource funcSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-07-01' = {
         }
       }
       {
+        name: 'AllowStoragePE'
+        properties: {
+          description: 'Allow Function App to reach storage private endpoint'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
+          sourceAddressPrefix: funcSubnetAddressPrefix
+          destinationAddressPrefix: storageSubnetAddressPrefix
+          access: 'Allow'
+          priority: 1050
+          direction: 'Outbound'
+        }
+      }
+      {
         name: 'AllowStorageOutbound'
         properties: {
-          description: 'Allow Function App to reach storage private endpoints'
+          description: 'Allow Function App to reach Azure Storage service tag'
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '443'
@@ -168,6 +183,132 @@ resource storageSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-07-01' =
 // 🌐 Virtual Network
 // ─────────────────────────────────────────────
 
+resource bastionSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-07-01' = {
+  name: 'nsg-pkiBastionSubnet'
+  location: location
+  properties: {
+    securityRules: [
+      {
+        name: 'AllowHttpsInbound'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
+          sourceAddressPrefix: 'Internet'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1000
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'AllowGatewayManagerInbound443'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
+          sourceAddressPrefix: 'GatewayManager'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1001
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'AllowGatewayManagerInbound4443'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '4443'
+          sourceAddressPrefix: 'GatewayManager'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1002
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'AllowAzureLoadBalancerInbound'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
+          sourceAddressPrefix: 'AzureLoadBalancer'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          priority: 1003
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'AllowBastionHostCommunication'
+        properties: {
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRanges: ['8080', '5701']
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          priority: 1004
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'AllowSSHRDPOutbound'
+        properties: {
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRanges: ['22', '3389']
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          priority: 1000
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'AllowAzureCloudOutbound'
+        properties: {
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'AzureCloud'
+          access: 'Allow'
+          priority: 1001
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'AllowBastionCommunication'
+        properties: {
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRanges: ['8080', '5701']
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          priority: 1002
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'AllowGetSessionInformation'
+        properties: {
+          protocol: '*'
+          sourcePortRange: '*'
+          destinationPortRange: '80'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'Internet'
+          access: 'Allow'
+          priority: 1003
+          direction: 'Outbound'
+        }
+      }
+    ]
+  }
+}
+
 resource vnet 'Microsoft.Network/virtualNetworks@2024-07-01' = {
   name: vnetName
   location: location
@@ -197,11 +338,14 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-07-01' = {
           networkSecurityGroup: {
             id: funcSubnetNsg.id
           }
+          natGateway: {
+            id: natGateway.id
+          }
           delegations: [
             {
-              name: 'Microsoft.App.environments'
+              name: 'Microsoft.Web.serverFarms'
               properties: {
-                serviceName: 'Microsoft.App/environments'
+                serviceName: 'Microsoft.Web/serverFarms'
               }
             }
           ]
@@ -214,6 +358,16 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-07-01' = {
           defaultOutboundAccess: false
           networkSecurityGroup: {
             id: storageSubnetNsg.id
+          }
+        }
+      }
+      {
+        name: 'AzureBastionSubnet'
+        properties: {
+          addressPrefix: bastionSubnetAddressPrefix
+          defaultOutboundAccess: false
+          networkSecurityGroup: {
+            id: bastionSubnetNsg.id
           }
         }
       }
@@ -230,5 +384,6 @@ output vnetName string = vnet.name
 output caSubnetId string = vnet.properties.subnets[0].id
 output funcSubnetId string = vnet.properties.subnets[1].id
 output storageSubnetId string = vnet.properties.subnets[2].id
+output bastionSubnetId string = vnet.properties.subnets[3].id
 output natGatewayId string = natGateway.id
 output natGatewayPublicIpAddress string = natGatewayPublicIp.properties.ipAddress

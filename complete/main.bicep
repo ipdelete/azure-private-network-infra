@@ -16,7 +16,7 @@ targetScope = 'subscription'
 param rgName string = 'aet-pi-localdev-es2-tst4'
 
 @description('Location for all resources')
-param location string = 'eastus2'
+param location string = 'centralus'
 
 @description('Virtual network name')
 param vnetName string = 'vnet-pi-localdev'
@@ -101,7 +101,6 @@ module storageDeployment '../sa/main.bicep' = {
   params: {
     location: location
     storageAccountPrefix: storageAccountPrefix
-    vnetResourceGroupName: rgName
     vnetName: vnetName
     storageSubnetName: 'storageSubnet'
   }

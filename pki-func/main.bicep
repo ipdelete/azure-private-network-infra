@@ -86,18 +86,44 @@ resource deployContainer 'Microsoft.Storage/storageAccounts/blobServices/contain
 }
 
 // ─────────────────────────────────────────────
-// ⚡ App Service Plan (Flex Consumption)
+// 📊 Log Analytics + Application Insights
+// ─────────────────────────────────────────────
+
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: '${functionAppName}-logs'
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: '${functionAppName}-insights'
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logAnalyticsWorkspace.id
+  }
+}
+
+// ─────────────────────────────────────────────
+// ⚡ App Service Plan (Elastic Premium)
 // ─────────────────────────────────────────────
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: appServicePlanName
   location: location
   sku: {
-    name: 'FC1'
-    tier: 'FlexConsumption'
+    name: 'EP1'
+    tier: 'ElasticPremium'
   }
   properties: {
     reserved: true
+    maximumElasticWorkerCount: 1
   }
 }
 
@@ -116,34 +142,50 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
     serverFarmId: appServicePlan.id
     httpsOnly: true
     virtualNetworkSubnetId: vnet::funcSubnet.id
-    functionAppConfig: {
-      runtime: {
-        name: 'dotnet-isolated'
-        version: '8.0'
-      }
-      scaleAndConcurrency: {
-        maximumInstanceCount: 10
-        instanceMemoryMB: 2048
-      }
-      deployment: {
-        storage: {
-          type: 'blobContainer'
-          value: 'https://${funcStorageAccount.name}.blob.${environment().suffixes.storage}/${deployContainerName}'
-          authentication: {
-            type: 'SystemAssignedIdentity'
-          }
-        }
-      }
-    }
     siteConfig: {
+      linuxFxVersion: 'DOTNET-ISOLATED|8.0'
+      alwaysOn: true
+      vnetRouteAllEnabled: true
       appSettings: [
+        {
+          name: 'FUNCTIONS_EXTENSION_VERSION'
+          value: '~4'
+        }
+        {
+          name: 'FUNCTIONS_WORKER_RUNTIME'
+          value: 'dotnet-isolated'
+        }
         {
           name: 'AzureWebJobsStorage__accountName'
           value: funcStorageAccount.name
         }
         {
+          name: 'AzureWebJobsStorage__blobServiceUri'
+          value: 'https://${funcStorageAccount.name}.blob.${environment().suffixes.storage}'
+        }
+        {
+          name: 'AzureWebJobsStorage__queueServiceUri'
+          value: 'https://${funcStorageAccount.name}.queue.${environment().suffixes.storage}'
+        }
+        {
+          name: 'AzureWebJobsStorage__tableServiceUri'
+          value: 'https://${funcStorageAccount.name}.table.${environment().suffixes.storage}'
+        }
+        {
+          name: 'AzureWebJobsStorage__credential'
+          value: 'managedidentity'
+        }
+        {
           name: 'PKI_STORAGE_ACCOUNT_NAME'
           value: pkiStorageAccountName
+        }
+        {
+          name: 'PkiStorageConnection__blobServiceUri'
+          value: 'https://${pkiStorageAccountName}.blob.${environment().suffixes.storage}'
+        }
+        {
+          name: 'PkiStorageConnection__credential'
+          value: 'managedidentity'
         }
         {
           name: 'STEP_CA_URL'
@@ -160,6 +202,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         {
           name: 'STEP_CA_PASSWORD'
           value: stepCaProvisionerPassword
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsights.properties.ConnectionString
         }
       ]
     }
@@ -178,6 +224,28 @@ resource funcStorageBlobOwner 'Microsoft.Authorization/roleAssignments@2022-04-0
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
+  }
+}
+
+// Storage Queue Data Contributor on the function runtime SA (AzureWebJobsStorage queues)
+resource funcStorageQueueContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(funcStorageAccount.id, functionApp.id, '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+  scope: funcStorageAccount
+  properties: {
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+  }
+}
+
+// Storage Table Data Contributor on the function runtime SA (AzureWebJobsStorage tables)
+resource funcStorageTableContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(funcStorageAccount.id, functionApp.id, '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
+  scope: funcStorageAccount
+  properties: {
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
   }
 }
 

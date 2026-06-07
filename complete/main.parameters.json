@@ -6,7 +6,7 @@
       "value": "aet-pi-localdev-es2-tst4"
     },
     "location": {
-      "value": "eastus2"
+      "value": "centralus"
     },
     "vnetName": {
       "value": "vnet-pi-localdev"
