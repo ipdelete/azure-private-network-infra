@@ -133,15 +133,38 @@ output principalId string = virtualMachine.identity.principalId
 
 resource pkiStorageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = if (!empty(pkiStorageAccountName)) {
   name: pkiStorageAccountName
+
+  resource blobSvc 'blobServices' existing = {
+    name: 'default'
+
+    resource csrContainer 'containers' existing = {
+      name: 'csr'
+    }
+
+    resource certsContainer 'containers' existing = {
+      name: 'certs'
+    }
+  }
 }
 
-// Storage Blob Data Contributor on the PKI SA (upload CSRs, read certs)
-resource pkiStorageBlobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(pkiStorageAccountName)) {
-  name: guid(pkiStorageAccount.id, virtualMachine.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
-  scope: pkiStorageAccount
+// Storage Blob Data Contributor on csr/ container only (upload CSRs)
+resource pkiCsrContainerContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(pkiStorageAccountName)) {
+  name: guid(pkiStorageAccount::blobSvc::csrContainer.id, virtualMachine.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+  scope: pkiStorageAccount::blobSvc::csrContainer
   properties: {
     principalId: virtualMachine.identity.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+  }
+}
+
+// Storage Blob Data Reader on certs/ container only (download signed cert)
+resource pkiCertsContainerReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(pkiStorageAccountName)) {
+  name: guid(pkiStorageAccount::blobSvc::certsContainer.id, virtualMachine.id, '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
+  scope: pkiStorageAccount::blobSvc::certsContainer
+  properties: {
+    principalId: virtualMachine.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
   }
 }

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "keyVaultNamePrefix": {
+      "value": "kvpki"
+    },
+    "pkiVnetName": {
+      "value": "vnet-pki-lab"
+    },
+    "pkiStorageSubnetName": {
+      "value": "pkiStorageSubnet"
+    },
+    "pkiDnsResourceGroupName": {
+      "value": "aet-pki-dns-centralus-tst4"
+    },
+    "logAnalyticsWorkspaceId": {
+      "value": "REPLACE_WITH_pki-logs_workspaceId_OUTPUT"
+    }
+  }
+}

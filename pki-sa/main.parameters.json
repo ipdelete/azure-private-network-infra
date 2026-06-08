@@ -19,6 +19,9 @@
     },
     "pkiDnsResourceGroupName": {
       "value": "aet-pki-dns-centralus-tst4"
+    },
+    "logAnalyticsWorkspaceId": {
+      "value": "REPLACE_WITH_pki-logs_workspaceId_OUTPUT"
     }
   }
 }

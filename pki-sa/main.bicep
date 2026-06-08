@@ -31,9 +31,19 @@ param existingStorageSubnetName string = 'storageSubnet'
 @description('Resource group that hosts the PKI VNet private DNS zone')
 param pkiDnsResourceGroupName string = 'aet-pki-dns-centralus-tst4'
 
+@description('Log Analytics workspace resource ID for diagnostics')
+param logAnalyticsWorkspaceId string
+
+@description('Time-based immutability period for csr/ in days (min 1)')
+param csrImmutabilityDays int = 1
+
+@description('Soft delete retention (days) for blobs and containers')
+param softDeleteRetentionDays int = 7
+
 // 🔧 Variables
 var storageAccountName = '${storageAccountPrefix}${uniqueString(resourceGroup().id)}'
 var privateDnsZoneName = 'privatelink.blob.${environment().suffixes.storage}'
+var queuePrivateDnsZoneName = 'privatelink.queue.${environment().suffixes.storage}'
 
 // ─────────────────────────────────────────────
 // 🌐 Reference existing VNets and subnets
@@ -87,6 +97,17 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
   parent: storageAccount
   name: 'default'
+  properties: {
+    isVersioningEnabled: true
+    deleteRetentionPolicy: {
+      enabled: true
+      days: softDeleteRetentionDays
+    }
+    containerDeleteRetentionPolicy: {
+      enabled: true
+      days: softDeleteRetentionDays
+    }
+  }
 }
 
 resource csrContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
@@ -97,9 +118,26 @@ resource csrContainer 'Microsoft.Storage/storageAccounts/blobServices/containers
   }
 }
 
+resource csrImmutability 'Microsoft.Storage/storageAccounts/blobServices/containers/immutabilityPolicies@2023-05-01' = {
+  parent: csrContainer
+  name: 'default'
+  properties: {
+    immutabilityPeriodSinceCreationInDays: csrImmutabilityDays
+    allowProtectedAppendWrites: false
+  }
+}
+
 resource certsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
   parent: blobServices
   name: 'certs'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+resource rejectedContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobServices
+  name: 'rejected'
   properties: {
     publicAccess: 'None'
   }
@@ -217,6 +255,101 @@ resource existingDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZone
 }
 
 // ─────────────────────────────────────────────
+// 📨 Queue Service (required by Function blob trigger poison queue)
+// ─────────────────────────────────────────────
+
+resource queueServices 'Microsoft.Storage/storageAccounts/queueServices@2023-05-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+// ─────────────────────────────────────────────
+// 🔒 Queue Private DNS Zone (linked to PKI VNet)
+// ─────────────────────────────────────────────
+
+module pkiQueuePrivateDns './private-dns-zone.bicep' = {
+  name: 'pki-queue-private-dns'
+  scope: resourceGroup(pkiDnsResourceGroupName)
+  params: {
+    privateDnsZoneName: queuePrivateDnsZoneName
+    virtualNetworkId: pkiVnet.id
+    linkName: '${queuePrivateDnsZoneName}-pki-link'
+  }
+}
+
+// ─────────────────────────────────────────────
+// 🔒 Queue Private Endpoint — PKI VNet
+// ─────────────────────────────────────────────
+
+resource pkiQueuePrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
+  name: 'pe-${storageAccountName}-queue-pki'
+  location: location
+  properties: {
+    subnet: {
+      id: pkiVnet::pkiStorageSubnet.id
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'pe-${storageAccountName}-queue-pki-connection'
+        properties: {
+          privateLinkServiceId: storageAccount.id
+          groupIds: [
+            'queue'
+          ]
+        }
+      }
+    ]
+  }
+}
+
+resource pkiQueueDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-05-01' = {
+  name: 'default'
+  parent: pkiQueuePrivateEndpoint
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: queuePrivateDnsZoneName
+        properties: {
+          privateDnsZoneId: pkiQueuePrivateDns.outputs.privateDnsZoneId
+        }
+      }
+    ]
+  }
+}
+
+// ─────────────────────────────────────────────
+// 📊 Diagnostics — Blob + Account
+// ─────────────────────────────────────────────
+
+resource blobDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'sa-pki-blob-diagnostics'
+  scope: blobServices
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: [
+      {
+        category: 'StorageRead'
+        enabled: true
+      }
+      {
+        category: 'StorageWrite'
+        enabled: true
+      }
+      {
+        category: 'StorageDelete'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'Transaction'
+        enabled: true
+      }
+    ]
+  }
+}
+
+// ─────────────────────────────────────────────
 // 📊 Outputs
 // ─────────────────────────────────────────────
 
@@ -224,7 +357,11 @@ output storageAccountName string = storageAccount.name
 output storageAccountId string = storageAccount.id
 output csrContainerName string = csrContainer.name
 output certsContainerName string = certsContainer.name
+output csrContainerId string = csrContainer.id
+output certsContainerId string = certsContainer.id
 output existingPrivateDnsZoneId string = existingPrivateDnsZone.id
 output pkiPrivateDnsZoneId string = pkiPrivateDns.outputs.privateDnsZoneId
 output pkiPrivateEndpointId string = pkiPrivateEndpoint.id
 output existingPrivateEndpointId string = existingPrivateEndpoint.id
+output pkiQueuePrivateEndpointId string = pkiQueuePrivateEndpoint.id
+output rejectedContainerName string = rejectedContainer.name

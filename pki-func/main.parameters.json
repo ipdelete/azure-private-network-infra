@@ -8,8 +8,14 @@
     "pkiStorageAccountName": {
       "value": "sapki4x6ipx4ntpsqk"
     },
-    "stepCaProvisionerPassword": {
-      "value": "YOUR_PROVISIONER_PASSWORD_HERE"
+    "logAnalyticsWorkspaceId": {
+      "value": "REPLACE_WITH_pki-logs_workspaceId_OUTPUT"
+    },
+    "keyVaultName": {
+      "value": "REPLACE_WITH_pki-kv_keyVaultName_OUTPUT"
+    },
+    "enableKeyVaultReferences": {
+      "value": false
     },
     "stepCaFingerprint": {
       "value": "80a2985ff1a34a9ca25513cd0e05db454dea00876cf501bdb627f5df92b1f15c"
@@ -18,7 +24,11 @@
       "value": "ra-provisioner"
     },
     "stepCaUrl": {
-      "value": "https://10.1.1.4"
+      "value": "https://ca.pki-lab.local"
+    },
+    "csrAllowedDnsSuffix": {
+      "value": "pki-lab.local"
     }
   }
 }
+

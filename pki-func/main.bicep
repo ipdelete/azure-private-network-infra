@@ -16,23 +16,111 @@ param vnetName string = 'vnet-pki-lab'
 param funcSubnetName string = 'funcSubnet'
 param pkiStorageAccountName string
 
-@secure()
-@description('Provisioner password for step-ca RA authentication')
-param stepCaProvisionerPassword string
+@description('Log Analytics workspace resource ID (from pki-logs module)')
+param logAnalyticsWorkspaceId string
 
-@description('step-ca URL (private IP)')
-param stepCaUrl string = 'https://10.1.1.4'
+@description('Key Vault name housing step-ca secrets (from pki-kv module)')
+param keyVaultName string
 
-@description('step-ca root CA fingerprint')
+@description('Key Vault DNS suffix. Defaults to environment().suffixes.keyvaultDns.')
+param keyVaultDnsSuffix string = environment().suffixes.keyvaultDns
+
+@description('Toggle Key Vault references on app settings. Pass 1 = false (creates app + MI + role); pass 2 = true (adds KV-ref settings).')
+param enableKeyVaultReferences bool = false
+
+@description('step-ca URL (uses pki-lab.local DNS, resolves to CA private IP via privateDnsZone)')
+param stepCaUrl string = 'https://ca.pki-lab.local'
+
+@description('step-ca root CA fingerprint (sanity check only — chain validation is authoritative)')
 param stepCaFingerprint string
 
 @description('step-ca provisioner name')
 param stepCaProvisionerName string = 'ra-provisioner'
 
+@description('CSR allow-list: DNS suffix required for all SANs and CN')
+param csrAllowedDnsSuffix string = 'pki-lab.local'
+
 // 🔧 Variables
 var funcStorageAccountName = 'safunc${uniqueString(resourceGroup().id)}'
 var appServicePlanName = '${functionAppName}-plan'
 var deployContainerName = 'app-package'
+var keyVaultUri = 'https://${keyVaultName}.${keyVaultDnsSuffix}/'
+var baseAppSettings = [
+  {
+    name: 'FUNCTIONS_EXTENSION_VERSION'
+    value: '~4'
+  }
+  {
+    name: 'FUNCTIONS_WORKER_RUNTIME'
+    value: 'dotnet-isolated'
+  }
+  {
+    name: 'AzureWebJobsStorage__accountName'
+    value: funcStorageAccount.name
+  }
+  {
+    name: 'AzureWebJobsStorage__blobServiceUri'
+    value: 'https://${funcStorageAccount.name}.blob.${environment().suffixes.storage}'
+  }
+  {
+    name: 'AzureWebJobsStorage__queueServiceUri'
+    value: 'https://${funcStorageAccount.name}.queue.${environment().suffixes.storage}'
+  }
+  {
+    name: 'AzureWebJobsStorage__tableServiceUri'
+    value: 'https://${funcStorageAccount.name}.table.${environment().suffixes.storage}'
+  }
+  {
+    name: 'AzureWebJobsStorage__credential'
+    value: 'managedidentity'
+  }
+  {
+    name: 'PKI_STORAGE_ACCOUNT_NAME'
+    value: pkiStorageAccountName
+  }
+  {
+    name: 'PkiStorageConnection__blobServiceUri'
+    value: 'https://${pkiStorageAccountName}.blob.${environment().suffixes.storage}'
+  }
+  {
+    name: 'PkiStorageConnection__credential'
+    value: 'managedidentity'
+  }
+  {
+    name: 'STEP_CA_URL'
+    value: stepCaUrl
+  }
+  {
+    name: 'STEP_CA_FINGERPRINT'
+    value: stepCaFingerprint
+  }
+  {
+    name: 'STEP_CA_PROVISIONER'
+    value: stepCaProvisionerName
+  }
+  {
+    name: 'CSR_ALLOWED_DNS_SUFFIX'
+    value: csrAllowedDnsSuffix
+  }
+  {
+    name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+    value: appInsights.properties.ConnectionString
+  }
+]
+var keyVaultRefSettings = [
+  {
+    name: 'STEP_CA_PROVISIONER_PASSWORD'
+    value: '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/step-ca-provisioner-password/)'
+  }
+  {
+    name: 'STEP_CA_PROVISIONER_JWK'
+    value: '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/step-ca-provisioner-jwk/)'
+  }
+  {
+    name: 'STEP_CA_ROOT_CERT_PEM'
+    value: '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/step-ca-root-cert/)'
+  }
+]
 
 // ─────────────────────────────────────────────
 // 🌐 Reference existing VNet and subnet
@@ -86,19 +174,8 @@ resource deployContainer 'Microsoft.Storage/storageAccounts/blobServices/contain
 }
 
 // ─────────────────────────────────────────────
-// 📊 Log Analytics + Application Insights
+// 📊 Application Insights (workspace-backed)
 // ─────────────────────────────────────────────
-
-resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: '${functionAppName}-logs'
-  location: location
-  properties: {
-    sku: {
-      name: 'PerGB2018'
-    }
-    retentionInDays: 30
-  }
-}
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: '${functionAppName}-insights'
@@ -106,7 +183,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   kind: 'web'
   properties: {
     Application_Type: 'web'
-    WorkspaceResourceId: logAnalyticsWorkspace.id
+    WorkspaceResourceId: logAnalyticsWorkspaceId
   }
 }
 
@@ -141,73 +218,13 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     httpsOnly: true
+    keyVaultReferenceIdentity: 'SystemAssigned'
     virtualNetworkSubnetId: vnet::funcSubnet.id
     siteConfig: {
       linuxFxVersion: 'DOTNET-ISOLATED|8.0'
       alwaysOn: true
       vnetRouteAllEnabled: true
-      appSettings: [
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'dotnet-isolated'
-        }
-        {
-          name: 'AzureWebJobsStorage__accountName'
-          value: funcStorageAccount.name
-        }
-        {
-          name: 'AzureWebJobsStorage__blobServiceUri'
-          value: 'https://${funcStorageAccount.name}.blob.${environment().suffixes.storage}'
-        }
-        {
-          name: 'AzureWebJobsStorage__queueServiceUri'
-          value: 'https://${funcStorageAccount.name}.queue.${environment().suffixes.storage}'
-        }
-        {
-          name: 'AzureWebJobsStorage__tableServiceUri'
-          value: 'https://${funcStorageAccount.name}.table.${environment().suffixes.storage}'
-        }
-        {
-          name: 'AzureWebJobsStorage__credential'
-          value: 'managedidentity'
-        }
-        {
-          name: 'PKI_STORAGE_ACCOUNT_NAME'
-          value: pkiStorageAccountName
-        }
-        {
-          name: 'PkiStorageConnection__blobServiceUri'
-          value: 'https://${pkiStorageAccountName}.blob.${environment().suffixes.storage}'
-        }
-        {
-          name: 'PkiStorageConnection__credential'
-          value: 'managedidentity'
-        }
-        {
-          name: 'STEP_CA_URL'
-          value: stepCaUrl
-        }
-        {
-          name: 'STEP_CA_FINGERPRINT'
-          value: stepCaFingerprint
-        }
-        {
-          name: 'STEP_CA_PROVISIONER'
-          value: stepCaProvisionerName
-        }
-        {
-          name: 'STEP_CA_PASSWORD'
-          value: stepCaProvisionerPassword
-        }
-        {
-          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value: appInsights.properties.ConnectionString
-        }
-      ]
+      appSettings: enableKeyVaultReferences ? concat(baseAppSettings, keyVaultRefSettings) : baseAppSettings
     }
   }
 }
@@ -253,14 +270,47 @@ resource funcStorageTableContributor 'Microsoft.Authorization/roleAssignments@20
 // 🔐 RBAC — Function App → PKI Storage Account
 // ─────────────────────────────────────────────
 
-// Storage Blob Data Contributor on the PKI SA (read CSRs, write certs)
-resource pkiStorageBlobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(pkiStorageAccount.id, functionApp.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+// Storage Blob Data Owner on the PKI SA (account-scoped — required by
+// identity-based BlobTrigger for receipts/leases, plus reading CSRs and
+// writing certs/rejected blobs).
+resource pkiStorageBlobOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(pkiStorageAccount.id, functionApp.id, 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
   scope: pkiStorageAccount
   properties: {
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
+  }
+}
+
+// Storage Queue Data Contributor on the PKI SA (account-scoped — required
+// by identity-based BlobTrigger to write poison-blob messages).
+resource pkiStorageQueueContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(pkiStorageAccount.id, functionApp.id, '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+  scope: pkiStorageAccount
+  properties: {
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+  }
+}
+
+// ─────────────────────────────────────────────
+// 🔐 RBAC — Function App → Key Vault
+// ─────────────────────────────────────────────
+
+resource keyVault 'Microsoft.KeyVault/vaults@2024-04-01-preview' existing = {
+  name: keyVaultName
+}
+
+// Key Vault Secrets User on the PKI KV (read secrets via KV references)
+resource kvSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, functionApp.id, '4633458b-17de-4321-9a5d-6b3aab74e0ed')
+  scope: keyVault
+  properties: {
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-4321-9a5d-6b3aab74e0ed')
   }
 }
 
@@ -273,3 +323,4 @@ output functionAppId string = functionApp.id
 output functionAppPrincipalId string = functionApp.identity.principalId
 output funcStorageAccountName string = funcStorageAccount.name
 output defaultHostName string = functionApp.properties.defaultHostName
+output keyVaultUri string = keyVaultUri
